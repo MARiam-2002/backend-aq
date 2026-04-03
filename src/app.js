@@ -19,6 +19,14 @@ function getAdmin() {
   return createClient(url, serviceKey);
 }
 
+app.get("/", (_req, res) => {
+  res.json({
+    name: "Estate Luxe API",
+    health: "/api/health",
+    endpoints: ["/api/health", "/api/tenants"],
+  });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, supabase: Boolean(getAdmin()) });
 });
