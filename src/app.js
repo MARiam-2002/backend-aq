@@ -6,6 +6,8 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { openapiSpec } from "./openapi.js";
+import { buildNotificationsFromRows } from "./rentNotifications.js";
+import { insertBodyFromClient, patchBodyFromClient } from "./tenantPayload.js";
 
 const app = express();
 
@@ -62,7 +64,7 @@ app.get("/", (_req, res) => {
     health: "/api/health",
     docs: "/api-docs",
     openapi: "/openapi.json",
-    endpoints: ["/api/health", "/api/tenants"],
+    endpoints: ["/api/health", "/api/tenants", "/api/notifications"],
   });
 });
 
@@ -90,12 +92,56 @@ app.post("/api/tenants", async (req, res) => {
     res.status(503).json({ error: "Supabase not configured on server" });
     return;
   }
-  const { data, error } = await admin.from("tenants").insert(req.body).select().single();
+  const row = insertBodyFromClient(req.body);
+  const { data, error } = await admin.from("tenants").insert(row).select().single();
   if (error) {
     res.status(400).json({ error: error.message });
     return;
   }
   res.json(data);
+});
+
+app.patch("/api/tenants/:id", async (req, res) => {
+  const admin = getAdmin();
+  if (!admin) {
+    res.status(503).json({ error: "Supabase not configured on server" });
+    return;
+  }
+  const patch = patchBodyFromClient(req.body);
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "No updatable fields in body" });
+    return;
+  }
+  const { data, error } = await admin
+    .from("tenants")
+    .update(patch)
+    .eq("id", req.params.id)
+    .select()
+    .single();
+  if (error) {
+    res.status(400).json({ error: error.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+  res.json(data);
+});
+
+app.get("/api/notifications", async (_req, res) => {
+  const admin = getAdmin();
+  if (!admin) {
+    res.status(503).json({ error: "Supabase not configured on server" });
+    return;
+  }
+  const { data, error } = await admin.from("tenants").select("*");
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  const list = buildNotificationsFromRows(data ?? []);
+  res.json(list);
 });
 
 export { app };

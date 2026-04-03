@@ -15,6 +15,7 @@ export const openapiSpec = {
     { name: "Meta", description: "API info" },
     { name: "Health", description: "Service status" },
     { name: "Tenants", description: "Tenant records" },
+    { name: "Notifications", description: "Derived alerts (contract / rent)" },
   ],
   paths: {
     "/": {
@@ -127,6 +128,93 @@ export const openapiSpec = {
         },
       },
     },
+    "/api/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "List derived notifications",
+        description:
+          "Computes alerts from tenant rows (contract ending, ended, rent due/overdue).",
+        operationId: "listNotifications",
+        responses: {
+          200: {
+            description: "Array of notification objects",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/NotificationItem" },
+                },
+              },
+            },
+          },
+          503: {
+            description: "Supabase not configured",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorBody" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/tenants/{id}": {
+      patch: {
+        tags: ["Tenants"],
+        summary: "Update tenant",
+        operationId: "patchTenant",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TenantPatch" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Updated tenant row",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Tenant" },
+              },
+            },
+          },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorBody" },
+              },
+            },
+          },
+          404: {
+            description: "Not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorBody" },
+              },
+            },
+          },
+          503: {
+            description: "Supabase not configured",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorBody" },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -158,8 +246,25 @@ export const openapiSpec = {
       },
       TenantInput: {
         type: "object",
-        description: "Fields to insert into `tenants` (must match table columns)",
+        description:
+          "Fields to insert into `tenants` (camelCase or snake_case accepted)",
         additionalProperties: true,
+      },
+      TenantPatch: {
+        type: "object",
+        description: "Partial tenant update (camelCase or snake_case)",
+        additionalProperties: true,
+      },
+      NotificationItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          type: { type: "string" },
+          messageKey: { type: "string" },
+          params: { type: "object", additionalProperties: true },
+          tenantId: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+        },
       },
       ErrorBody: {
         type: "object",
