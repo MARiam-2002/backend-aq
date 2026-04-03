@@ -1,6 +1,9 @@
 /**
  * Derives alert items from tenant rows (same rules as frontend rentStatus.ts).
+ * Uses server calendar date via getTodayYmd() — not the client device clock.
  */
+
+import { getTodayYmd } from "./serverTime.js";
 
 const CONTRACT_WARN_DAYS = 60;
 
@@ -9,34 +12,28 @@ function parseLocalDate(iso) {
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
-function isContractEnded(contractEndDate) {
-  const end = parseLocalDate(contractEndDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-  return end < today;
+function isContractEnded(contractEndDate, todayYmd) {
+  return contractEndDate < todayYmd;
 }
 
-function getRentStatus(t) {
-  if (isContractEnded(t.contractEndDate)) return "Contract ended";
+function getRentStatus(t, todayYmd) {
+  if (isContractEnded(t.contractEndDate, todayYmd)) return "Contract ended";
   if (t.currentMonthPaid) return "Paid";
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
+  const [y, m, d] = todayYmd.split("-").map(Number);
+  const monthIndex = m - 1;
   if (t.lastPaidDate) {
     const last = parseLocalDate(t.lastPaidDate);
-    if (last.getFullYear() === y && last.getMonth() === m) return "Paid";
+    if (last.getFullYear() === y && last.getMonth() === monthIndex) return "Paid";
   }
-  const day = now.getDate();
-  if (day > 5) return "Overdue";
+  if (d > 5) return "Overdue";
   return "Due";
 }
 
-function daysUntilContractEnd(contractEndDate) {
+function daysUntilContractEnd(contractEndDate, todayYmd) {
   const end = parseLocalDate(contractEndDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = parseLocalDate(todayYmd);
   end.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
   return Math.ceil((end.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 }
 
@@ -58,6 +55,7 @@ export function rowToTenant(row) {
  * @returns {object[]} notification DTOs for the API
  */
 export function buildNotificationsFromRows(rows) {
+  const todayYmd = getTodayYmd();
   const createdAt = new Date().toISOString();
   const out = [];
 
@@ -65,7 +63,7 @@ export function buildNotificationsFromRows(rows) {
     const t = rowToTenant(row);
     const tid = t.id;
 
-    if (isContractEnded(t.contractEndDate)) {
+    if (isContractEnded(t.contractEndDate, todayYmd)) {
       out.push({
         id: `${tid}-contract-ended`,
         type: "contract_ended",
@@ -77,7 +75,7 @@ export function buildNotificationsFromRows(rows) {
       continue;
     }
 
-    const daysLeft = daysUntilContractEnd(t.contractEndDate);
+    const daysLeft = daysUntilContractEnd(t.contractEndDate, todayYmd);
     if (daysLeft > 0 && daysLeft <= CONTRACT_WARN_DAYS) {
       out.push({
         id: `${tid}-contract-soon`,
@@ -89,7 +87,7 @@ export function buildNotificationsFromRows(rows) {
       });
     }
 
-    const status = getRentStatus(t);
+    const status = getRentStatus(t, todayYmd);
     if (status === "Overdue") {
       out.push({
         id: `${tid}-rent-overdue`,

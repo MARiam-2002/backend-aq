@@ -7,6 +7,7 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { openapiSpec } from "./openapi.js";
 import { buildNotificationsFromRows } from "./rentNotifications.js";
+import { getTodayYmd } from "./serverTime.js";
 import { insertBodyFromClient, patchBodyFromClient } from "./tenantPayload.js";
 
 const app = express();
@@ -64,12 +65,18 @@ app.get("/", (_req, res) => {
     health: "/api/health",
     docs: "/api-docs",
     openapi: "/openapi.json",
-    endpoints: ["/api/health", "/api/tenants", "/api/notifications"],
+    endpoints: ["/api/health", "/api/time", "/api/tenants", "/api/notifications"],
   });
 });
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, supabase: Boolean(getAdmin()) });
+});
+
+/** Calendar date for business rules (IANA TZ, default Asia/Dubai). Not client clock. */
+app.get("/api/time", (_req, res) => {
+  const timezone = process.env.APP_TIMEZONE || "Asia/Dubai";
+  res.json({ date: getTodayYmd(timezone), timezone });
 });
 
 app.get("/api/tenants", async (_req, res) => {

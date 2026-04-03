@@ -53,6 +53,25 @@ export const openapiSpec = {
         },
       },
     },
+    "/api/time": {
+      get: {
+        tags: ["Health"],
+        summary: "Server calendar date",
+        description:
+          "Today’s date (YYYY-MM-DD) in APP_TIMEZONE (default Asia/Dubai). Use for rent logic instead of the client clock.",
+        operationId: "getServerTime",
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ServerTimeResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/tenants": {
       get: {
         tags: ["Tenants"],
@@ -236,6 +255,21 @@ export const openapiSpec = {
           supabase: {
             type: "boolean",
             description: "Whether Supabase URL and service role key are set",
+          },
+        },
+      },
+      ServerTimeResponse: {
+        type: "object",
+        properties: {
+          date: {
+            type: "string",
+            example: "2026-04-03",
+            description: "Calendar date YYYY-MM-DD",
+          },
+          timezone: {
+            type: "string",
+            example: "Asia/Dubai",
+            description: "IANA timezone used for the date",
           },
         },
       },
