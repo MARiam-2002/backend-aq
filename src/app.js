@@ -4,7 +4,6 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import swaggerUi from "swagger-ui-express";
 import { createClient } from "@supabase/supabase-js";
 import { openapiSpec } from "./openapi.js";
 
@@ -17,14 +16,37 @@ app.get("/openapi.json", (_req, res) => {
   res.json(openapiSpec);
 });
 
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(openapiSpec, {
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "Estate Luxe API — Swagger",
-  }),
-);
+/**
+ * Swagger UI via CDN — swagger-ui-express static assets often break on Vercel
+ * serverless (blank page); loading UI from unpkg avoids serving node_modules.
+ */
+const SWAGGER_UI_CDN = "https://unpkg.com/swagger-ui-dist@5.11.0";
+const swaggerUiPage = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Estate Luxe API — Swagger</title>
+<link rel="stylesheet" href="${SWAGGER_UI_CDN}/swagger-ui.css" />
+<style>html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0}</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="${SWAGGER_UI_CDN}/swagger-ui-bundle.js" crossorigin></script>
+<script>
+window.onload = function () {
+  window.ui = SwaggerUIBundle({
+    url: "/openapi.json",
+    dom_id: "#swagger-ui",
+  });
+};
+</script>
+</body>
+</html>`;
+
+app.get(["/api-docs", "/api-docs/"], (_req, res) => {
+  res.type("html").send(swaggerUiPage);
+});
 
 const url = process.env.SUPABASE_URL ?? "";
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
