@@ -4,12 +4,27 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
 import { createClient } from "@supabase/supabase-js";
+import { openapiSpec } from "./openapi.js";
 
 const app = express();
 
 app.use(cors({ origin: true }));
 app.use(express.json());
+
+app.get("/openapi.json", (_req, res) => {
+  res.json(openapiSpec);
+});
+
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "Estate Luxe API — Swagger",
+  }),
+);
 
 const url = process.env.SUPABASE_URL ?? "";
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -23,6 +38,8 @@ app.get("/", (_req, res) => {
   res.json({
     name: "Estate Luxe API",
     health: "/api/health",
+    docs: "/api-docs",
+    openapi: "/openapi.json",
     endpoints: ["/api/health", "/api/tenants"],
   });
 });
